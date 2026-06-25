@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movement Progress</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --ink:#1a1a1a; --ink2:#555; --ink3:#999;
+  --rule:#d0d0d0; --rule-light:#e8e8e8;
+  --paper:#f7f5f0; --white:#ffffff;
+  --accent:#c8440a; --accent-light:#f9ece6;
+  --green:#2a6b3c; --green-light:#e8f4ec;
+  --amber:#b06a00; --amber-light:#fdf3e0;
+  --blue:#185fa5; --blue-light:#e6f1fb;
+  --purple:#3C3489; --purple-light:#EEEDFE;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;}
+.header{background:var(--ink);color:white;padding:14px 20px;display:flex;align-items:center;gap:14px;border-bottom:3px solid var(--accent);}
+.header-title{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888;}
+.header-id{font-family:var(--mono);font-size:17px;font-weight:600;color:white;}
+.header-date{font-family:var(--mono);font-size:12px;color:var(--accent);margin-left:auto;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#444;margin-left:8px;flex-shrink:0;transition:background .3s;}
+.sync-dot.ok{background:var(--green);}
+.sync-dot.err{background:var(--accent);}
+
+.setup-banner{background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #c8440a;padding:12px 16px;margin:12px 16px 0;}
+.setup-banner p{font-size:12px;color:#856404;line-height:1.6;}
+.setup-banner input{width:100%;margin-top:8px;font-family:var(--mono);font-size:12px;padding:6px 8px;border:1px solid #ffc107;background:white;}
+.setup-banner button{margin-top:6px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;background:var(--ink);color:white;border:none;cursor:pointer;}
+
+.tabs{display:flex;background:var(--ink);padding:0 20px;overflow-x:auto;}
+.tab{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:10px 16px;color:#888;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:#ccc;}
+.tab.active{color:white;border-bottom-color:var(--accent);}
+
+.main{max-width:880px;margin:0 auto;padding:20px 14px;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+.section{background:var(--white);border:1px solid var(--rule);margin-bottom:14px;}
+.sh{background:var(--ink);color:white;padding:7px 14px;display:flex;align-items:center;gap:8px;}
+.sh-label{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#888;}
+.sh-title{font-family:var(--mono);font-size:11px;font-weight:500;color:white;}
+.sb{padding:14px;}
+
+/* TRIGGER */
+.floor-cue{border:2px solid var(--accent);padding:18px;text-align:center;margin-bottom:14px;background:var(--accent-light);}
+.floor-word{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:.05em;margin-bottom:5px;}
+.floor-sub{font-size:13px;color:var(--ink2);line-height:1.6;}
+.chain-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-light);}
+.chain-row:last-child{border-bottom:none;}
+.chain-arrow{font-family:var(--mono);font-size:12px;color:var(--accent);min-width:16px;margin-top:2px;}
+.chain-title{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:1px;}
+.chain-detail{font-size:12px;color:var(--ink2);}
+.log-btn{width:100%;padding:15px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;background:var(--ink);color:white;border:none;cursor:pointer;transition:background .15s;margin-bottom:10px;}
+.log-btn:hover{background:var(--accent);}
+.log-btn.fired{background:var(--green);}
+.count-display{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;}
+.count-num{font-family:var(--mono);font-size:34px;font-weight:600;color:var(--ink);}
+.count-meta{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;}
+.count-total{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-left:auto;}
+.dot-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--rule-light);border:1px solid var(--rule);}
+.dot.hit{background:var(--green);border-color:var(--green);}
+.dot.today-dot{border:2px solid var(--accent);}
+.streak-note{font-family:var(--mono);font-size:10px;color:var(--ink3);}
+
+/* WALK */
+.stage-block{border:1px solid var(--rule);margin-bottom:8px;}
+.stage-head{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;background:var(--white);}
+.stage-head:hover{background:#fafaf8;}
+.stage-num-badge{font-family:var(--mono);font-size:11px;font-weight:600;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stage-name{font-size:13px;font-weight:500;color:var(--ink);flex:1;}
+.stage-status{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;}
+.status-locked{color:var(--ink3);background:var(--rule-light);}
+.status-active{color:var(--amber);background:var(--amber-light);}
+.status-owned{color:var(--green);background:var(--green-light);}
+.stage-body{padding:13px;border-top:1px solid var(--rule-light);background:#fafaf8;display:none;}
+.stage-body.open{display:block;}
+.stage-cue{font-size:13px;color:var(--ink2);line-height:1.65;margin-bottom:12px;}
+.drill-section-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:7px;}
+.drill-row{display:flex;align-items:flex-start;gap:9px;padding:6px 0;border-bottom:1px solid var(--rule-light);}
+.drill-row:last-child{border-bottom:none;}
+.drill-check{width:17px;height:17px;border:1.5px solid var(--rule);border-radius:50%;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;margin-top:2px;}
+.drill-check.checked{background:var(--green-light);border-color:var(--green);}
+.drill-check.checked::after{content:'✓';font-size:10px;color:var(--green);font-weight:700;}
+.drill-text{font-size:12px;color:var(--ink2);line-height:1.5;}
+.own-btn{width:100%;margin-top:11px;padding:9px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--green-light);color:var(--green);border:1px solid #b0d8bc;cursor:pointer;}
+.own-btn:hover{background:#d0e8d8;}
+.davinci-note{border-left:3px solid var(--accent);padding:11px 13px;margin-top:14px;background:var(--accent-light);font-size:13px;color:var(--ink2);line-height:1.65;font-style:italic;}
+.davinci-note strong{font-style:normal;color:var(--ink);font-weight:500;}
+
+/* WALTZ */
+.figure-card{background:var(--white);border:1px solid var(--rule);margin-bottom:8px;}
+.figure-head{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;}
+.figure-head:hover{background:#fafaf8;}
+.figure-name{font-size:13px;font-weight:500;color:var(--ink);flex:1;}
+.figure-variant{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-top:2px;}
+.figure-badge{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 8px;text-transform:uppercase;}
+.figure-quality-pip{font-family:var(--mono);font-size:11px;font-weight:600;width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:var(--rule-light);color:var(--ink3);flex-shrink:0;}
+.figure-body{padding:13px;border-top:1px solid var(--rule-light);background:#fafaf8;display:none;}
+.figure-body.open{display:block;}
+
+.quality-row{display:flex;align-items:center;gap:6px;margin-bottom:14px;}
+.quality-label{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);min-width:52px;}
+.q-btn{width:34px;height:34px;font-family:var(--mono);font-size:13px;font-weight:600;border:1.5px solid var(--rule);background:var(--white);color:var(--ink2);cursor:pointer;transition:all .15s;}
+.q-btn:hover{border-color:var(--ink3);}
+.q-btn.sel{background:var(--ink);color:white;border-color:var(--ink);}
+.q-btn.sel-1{background:#c0392b;border-color:#c0392b;color:white;}
+.q-btn.sel-2{background:var(--amber);border-color:var(--amber);color:white;}
+.q-btn.sel-3{background:#d4b000;border-color:#d4b000;color:white;}
+.q-btn.sel-4{background:#4a9e6b;border-color:#4a9e6b;color:white;}
+.q-btn.sel-5{background:var(--green);border-color:var(--green);color:white;}
+
+.thresh-select{display:flex;gap:5px;margin-bottom:14px;}
+.ts-btn{flex:1;padding:7px 4px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--rule);background:var(--white);color:var(--ink2);cursor:pointer;text-align:center;transition:all .15s;}
+.ts-btn.sel-below{background:var(--amber-light);border-color:#e8c87a;color:var(--amber);}
+.ts-btn.sel-approaching{background:var(--blue-light);border-color:#85B7EB;color:var(--blue);}
+.ts-btn.sel-crossed{background:var(--green-light);border-color:#b0d8bc;color:var(--green);}
+
+.notes-field{width:100%;font-family:var(--sans);font-size:12px;padding:7px 9px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);resize:vertical;min-height:52px;outline:none;margin-bottom:10px;}
+.notes-field:focus{border-color:var(--accent);background:white;}
+.save-btn{width:100%;padding:9px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--accent);color:white;border:none;cursor:pointer;transition:background .15s;}
+.save-btn:hover{background:#a8360a;}
+.save-btn.saved{background:var(--green);}
+
+.phase2-shelf{background:var(--rule-light);border:1px dashed var(--rule);padding:13px;margin-top:6px;}
+.phase2-label{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;}
+.phase2-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:12px;color:var(--ink3);}
+.phase2-item:last-child{border-bottom:none;}
+.phase2-lock{font-family:var(--mono);font-size:10px;color:var(--ink3);}
+
+/* THRESHOLD */
+.thresh-card{background:var(--white);border:1px solid var(--rule);margin-bottom:8px;}
+.thresh-head{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;}
+.thresh-head:hover{background:#fafaf8;}
+.thresh-skill{font-size:13px;font-weight:500;color:var(--ink);flex:1;}
+.thresh-badge-sm{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 8px;text-transform:uppercase;}
+.badge-below{background:var(--amber-light);color:var(--amber);}
+.badge-approaching{background:var(--blue-light);color:var(--blue);}
+.badge-crossed{background:var(--green-light);color:var(--green);}
+.bar-wrap{margin:0 13px 2px;}
+.bar-track{height:4px;background:var(--rule-light);}
+.bar-fill{height:100%;transition:width .5s ease;}
+.bar-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink3);padding:3px 0 9px;}
+.thresh-body{padding:13px;border-top:1px solid var(--rule-light);background:#fafaf8;display:none;}
+.thresh-body.open{display:block;}
+.logjam-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px;}
+.logjam-text{font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:12px;border-left:2px solid var(--rule);padding-left:10px;}
+.add-skill-row{display:flex;gap:7px;margin-top:10px;}
+.add-skill-row input{flex:1;font-family:var(--sans);font-size:12px;border:1px solid var(--rule);padding:7px 9px;background:var(--paper);color:var(--ink);outline:none;}
+.add-skill-row input:focus{border-color:var(--accent);}
+.add-skill-row button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;background:var(--ink);color:white;border:none;cursor:pointer;white-space:nowrap;}
+.mozart-rule{background:var(--ink);color:white;padding:12px 14px;margin-top:14px;}
+.mozart-rule p{font-family:var(--mono);font-size:10px;line-height:1.7;color:#bbb;}
+.mozart-rule strong{color:white;}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:white;font-family:var(--mono);font-size:11px;padding:9px 18px;letter-spacing:.06em;transition:transform .3s;pointer-events:none;z-index:100;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+@media(max-width:600px){.header{padding:11px 14px;}.main{padding:14px 8px;}.tabs{overflow-x:auto;}.q-btn{width:28px;height:28px;font-size:11px;}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">Movement Progress</div>
+    <div class="header-id">WALK · WALTZ · THRESHOLD</div>
+  </div>
+  <div class="header-date" id="headerDate"></div>
+  <div class="sync-dot" id="syncDot" title="Sheets sync status"></div>
+</div>
+
+<div class="setup-banner" id="setupBanner">
+  <p><strong>Connect to Google Sheets:</strong> Deploy the Apps Script, then paste your <code>/exec</code> URL below.</p>
+  <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec" oninput="saveUrl()" />
+  <button onclick="testConnection()">Test connection</button>
+  <span id="testResult" style="font-size:11px;margin-left:8px;"></span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('trigger',this)">Trigger</div>
+  <div class="tab" onclick="switchTab('walk',this)">Walk</div>
+  <div class="tab" onclick="switchTab('waltz',this)">Waltz</div>
+  <div class="tab" onclick="switchTab('threshold',this)">Threshold</div>
+</div>
+
+<div class="main">
+
+<!-- TRIGGER -->
+<div class="panel active" id="panel-trigger">
+  <div class="section">
+    <div class="sh"><span class="sh-label">Stand-up cue</span><span class="sh-title">The Single Trigger</span></div>
+    <div class="sb">
+      <div class="floor-cue">
+        <div class="floor-word">Find the floor.</div>
+        <div class="floor-sub">Feet take weight — feel it rise through sole, ankle, calf.<br>Half a second. Then walk.</div>
+      </div>
+      <div class="chain-row"><div class="chain-arrow">→</div><div><div class="chain-title">Ankle receives, not braces</div><div class="chain-detail">Wave transmitter mode. Everything upstream unlocks.</div></div></div>
+      <div class="chain-row"><div class="chain-arrow">→</div><div><div class="chain-title">Knee softens automatically</div><div class="chain-detail">Not a decision — consequence of the ankle.</div></div></div>
+      <div class="chain-row"><div class="chain-arrow">→</div><div><div class="chain-title">Hip drops, doesn't hike</div><div class="chain-detail">Pendulum swing begins. Stride length finds itself.</div></div></div>
+      <div class="chain-row"><div class="chain-arrow">→</div><div><div class="chain-title">Jaw releases</div><div class="chain-detail">Attention moves outward. Bracing dissolves.</div></div></div>
+    </div>
+  </div>
+  <button class="log-btn" id="logBtn" onclick="logTrigger()">I just stood up and found the floor</button>
+  <div class="section">
+    <div class="sh"><span class="sh-label">Today</span><span class="sh-title">Trigger Log</span></div>
+    <div class="sb">
+      <div class="count-display">
+        <div class="count-num" id="todayCount">0</div>
+        <div class="count-meta">times today</div>
+        <div class="count-total" id="totalCount"></div>
+      </div>
+      <div class="dot-row" id="dotRow"></div>
+      <div class="streak-note" id="streakNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- WALK -->
+<div class="panel" id="panel-walk">
+  <div id="stageBlocks"></div>
+  <div class="davinci-note"><strong>Da Vinci:</strong> Walking is controlled falling. Every step is genuine imbalance — you throw weight forward and trust the next foot to catch it. A beautiful walker doesn't suppress the fall — they commit to it completely.</div>
+</div>
+
+<!-- WALTZ -->
+<div class="panel" id="panel-waltz">
+  <div id="figureCards"></div>
+  <div class="phase2-shelf">
+    <div class="phase2-label">Phase 2 — when quality threshold is crossed on all figures above</div>
+    <div class="phase2-item"><span class="phase2-lock">🔒</span><span>High demi-pointe spin — ankle strength to clear the floor</span></div>
+    <div class="phase2-item"><span class="phase2-lock">🔒</span><span>High toe-toe walks</span></div>
+    <div class="phase2-item"><span class="phase2-lock">🔒</span><span>Timing work — introduce only after figures are below conscious attention</span></div>
+  </div>
+</div>
+
+<!-- THRESHOLD -->
+<div class="panel" id="panel-threshold">
+  <div id="threshCards"></div>
+  <div class="add-skill-row">
+    <input type="text" id="newSkillInput" placeholder="Add a skill — e.g. Tango, breath holds..." />
+    <button onclick="addSkill()">+ Add</button>
+  </div>
+  <div class="mozart-rule" style="margin-top:14px;">
+    <p><strong>Mozart's rule:</strong> Not "can I do it correctly." The right target: <strong>"can I do it wrong?"</strong> The threshold is when you couldn't do it badly even if you tried.</p>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────
+let SCRIPT_URL = localStorage.getItem('mv_script_url') || '';
+function saveUrl() {
+  SCRIPT_URL = document.getElementById('scriptUrl').value.trim();
+  localStorage.setItem('mv_script_url', SCRIPT_URL);
+}
+if (SCRIPT_URL) {
+  document.getElementById('scriptUrl').value = SCRIPT_URL;
+  document.getElementById('setupBanner').style.display = 'none';
+}
+async function testConnection() {
+  const r = document.getElementById('testResult');
+  r.textContent = 'Testing…';
+  try {
+    const res = await fetch(SCRIPT_URL);
+    const d = await res.json();
+    r.textContent = d.ok ? '✓ Connected' : '✗ ' + d.error;
+    r.style.color = d.ok ? 'green' : 'red';
+    if (d.ok) { document.getElementById('setupBanner').style.display = 'none'; setSyncDot(true); }
+  } catch(e) { r.textContent = '✗ Could not reach URL'; r.style.color = 'red'; }
+}
+function setSyncDot(ok) {
+  const d = document.getElementById('syncDot');
+  d.className = 'sync-dot ' + (ok ? 'ok' : 'err');
+}
+async function syncToSheets(payload) {
+  if (!SCRIPT_URL) return;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    setSyncDot(d.ok);
+  } catch(e) { setSyncDot(false); }
+}
+
+// ── UTILS ────────────────────────────────────────────────
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function load(k, def) { try { return JSON.parse(localStorage.getItem(k)||'null')||def; } catch(e) { return def; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function switchTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+}
+document.getElementById('headerDate').textContent =
+  new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+// ── TRIGGER ──────────────────────────────────────────────
+let triggerData = load('floor_v2', {});
+function logTrigger() {
+  const k = todayKey();
+  triggerData[k] = (triggerData[k]||0) + 1;
+  save('floor_v2', triggerData);
+  const btn = document.getElementById('logBtn');
+  btn.classList.add('fired'); btn.textContent = 'Floor found. Walk begins.';
+  setTimeout(()=>{ btn.classList.remove('fired'); btn.textContent='I just stood up and found the floor'; }, 1500);
+  syncToSheets({ type:'trigger', date:k, count:triggerData[k] });
+  renderTrigger();
+}
+function renderTrigger() {
+  const k = todayKey();
+  const today = triggerData[k]||0;
+  document.getElementById('todayCount').textContent = today;
+  const total = Object.values(triggerData).reduce((a,b)=>a+b,0);
+  document.getElementById('totalCount').textContent = total > 0 ? `${total} total` : '';
+  let streak = 0; const dots = [];
+  for (let i=13;i>=0;i--) {
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const hit=(triggerData[dk]||0)>0;
+    if(hit) streak++; else streak=0;
+    dots.push(`<div class="dot${hit?' hit':''}${dk===k?' today-dot':''}" title="${dk}: ${triggerData[dk]||0}x"></div>`);
+  }
+  document.getElementById('dotRow').innerHTML = dots.join('');
+  document.getElementById('streakNote').textContent = streak>1 ? `${streak}-day streak` : (today>4?'Habit forming':'Tap every time you stand up today');
+}
+renderTrigger();
+
+// ── WALK ─────────────────────────────────────────────────
+const WALK_STAGES = [
+  { name:'Jaw & hands open', cue:'Unclench jaw, soften fingers. Jaw drops 2mm, hands open. This alone changes how you look from 50 metres — a clenched jaw locks the neck, locks the shoulders, locks everything downstream.',
+    drills:['Stand and let jaw drop 2mm — notice what changes in shoulders','Walk to a door and back with hands completely open','Check jaw at every pause — make it a reflex scan'] },
+  { name:'Hip drop, not hip hike', cue:'On each step, let the stance-side hip drop slightly. Walk slowly and feel the pelvis rock — not a swagger, just permission. Most people hike to clear the floor. Let it drop instead.',
+    drills:['Walk slowly, hands on hips — feel the natural side-to-side rock','Exaggerate the drop for 10 paces, then find the subtle version','Walk past a mirror sideways — watch the hip level'] },
+  { name:'Slow the foot through air', cue:'The swing leg lingers — foot almost lazy before heel strike. Don\'t rush the arc forward. This is the teenage quality. Stride length sorts itself.',
+    drills:['Walk at half speed, focus only on the arc of the swing foot','Imagine the foot trailing through shallow water','Count 1-2-3 per step and let the foot arrive on 3'] },
+  { name:'Heavy arms, passive swing', cue:'Don\'t drive the arm swing — let them hang with weight and allow torso rotation to move them passively. Driven = military. Heavy = effortless.',
+    drills:['Walk with arms hanging completely dead — let torso rotation move them','Imagine wrists weighted slightly — feel the pendulum quality','Check: are you driving the arm or is torso rotation pulling it?'] },
+  { name:'Soft knees throughout', cue:'Never fully lock the knee at any point in the stride. A micro-bend at full extension gives the whole gait a fluid, absorbed quality — the knee that never locks can always respond.',
+    drills:['Walk keeping 5 degrees of bend at maximum extension','Feel: lock the knee 4 steps, then soften — notice jolt vs absorption','Barefoot on carpet — feel how soft knee absorbs each footfall'] },
+  { name:'Head float, eyes level', cue:'Head at a fixed height — not bobbing. This comes automatically from soft knees absorbing the stride. Eyes slightly ahead, completely relaxed. If head bobs, the knees are locking.',
+    drills:['Imagine floating at a fixed height — soft knees absorb, not stiff posture','Pick a point at eye level, walk toward it — head stays level','This stage tests all others: if it fails, return to stage 5'] },
+];
+let walkState = load('walk_v2', { currentStage:0, drills:{} });
+function renderWalk() {
+  document.getElementById('stageBlocks').innerHTML = WALK_STAGES.map((s,i)=>{
+    const owned=i<walkState.currentStage, active=i===walkState.currentStage;
+    const statusText=owned?'Owned':active?'Active':'Locked';
+    const statusClass=owned?'status-owned':active?'status-active':'status-locked';
+    const numBg=owned?'background:var(--green-light);color:var(--green);':active?'background:var(--amber-light);color:var(--amber);':'background:var(--rule-light);color:var(--ink3);';
+    const drillsHtml=s.drills.map((d,di)=>{
+      const dk=`s${i}_d${di}`, checked=walkState.drills[dk];
+      return `<div class="drill-row"><div class="drill-check${checked?' checked':''}" onclick="toggleWalkDrill('${dk}',${i})"></div><div class="drill-text">${d}</div></div>`;
+    }).join('');
+    return `<div class="stage-block">
+      <div class="stage-head" onclick="toggleWalkOpen(${i})">
+        <div class="stage-num-badge" style="${numBg}">${i+1}</div>
+        <div class="stage-name">${s.name}</div>
+        <div class="stage-status ${statusClass}">${statusText}</div>
+      </div>
+      <div class="stage-body${active?' open':''}" id="wb${i}">
+        <div class="stage-cue">${s.cue}</div>
+        <div class="drill-section-label">Mozart drills — not until it's easy</div>
+        ${drillsHtml}
+        ${active?`<button class="own-btn" onclick="ownWalkStage(${i})">Mark as owned — in the body, not just understood</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleWalkOpen(i){ const b=document.getElementById('wb'+i); if(b) b.classList.toggle('open'); }
+function toggleWalkDrill(dk,si){
+  walkState.drills[dk]=!walkState.drills[dk];
+  save('walk_v2',walkState);
+  const s=WALK_STAGES[si];
+  const done=s.drills.filter((_,di)=>walkState.drills[`s${si}_d${di}`]).length;
+  syncToSheets({type:'walk',date:todayKey(),stageIndex:si,stageName:s.name,status:si<walkState.currentStage?'owned':si===walkState.currentStage?'active':'locked',drillsDone:done,drillsTotal:s.drills.length});
+  renderWalk();
+}
+function ownWalkStage(i){
+  if(i===walkState.currentStage){ walkState.currentStage=i+1; save('walk_v2',walkState);
+    const next=WALK_STAGES[i+1];
+    syncToSheets({type:'walk',date:todayKey(),stageIndex:i,stageName:WALK_STAGES[i].name,status:'owned',drillsDone:WALK_STAGES[i].drills.length,drillsTotal:WALK_STAGES[i].drills.length});
+    showToast(`Stage ${i+1} owned.${next?' Next: '+next.name:' All stages complete.'}`) ; renderWalk(); }
+}
+renderWalk();
+
+// ── WALTZ FIGURES ────────────────────────────────────────
+const FIGURES = [
+  { id:'nst',     name:'Natural Spin Turn',    variant:'Base',      group:'Natural Spin Turn',
+    checks:['Entering step places weight correctly onto right foot','Heel pivot clean — no swivel','Spin axis vertical, not leaning','Exit naturally into next figure','Consistent rotation amount each time'] },
+  { id:'nst-sw',  name:'Natural Spin Turn',    variant:'Sway',      group:'Natural Spin Turn',
+    checks:['Base figure secure before introducing sway','Sway from hip — not shoulder collapse','Sway direction correct per step','Returns to upright cleanly on exit','Partner can feel and follow the sway'] },
+  { id:'nst-ns',  name:'Natural Spin Turn',    variant:'No Sway — Zippy', group:'Natural Spin Turn',
+    checks:['Body remains vertical and dynamic throughout','Energy increases without sway compensation','Footwork sharp — heel-toe precise','Arm frame supports the speed','Feels intentionally crisp, not just unsway-ed'] },
+  { id:'ci',      name:'Closed Impetus',       variant:'Base',      group:'Closed Impetus',
+    checks:['Rise on step 3 to high toe','Heel turn clean on step 2 (lady)','Contra-body movement present on entry','Exit direction correct into feather or natural','Frame maintained through the turn'] },
+  { id:'ci-sw',   name:'Closed Impetus',       variant:'Sway',      group:'Closed Impetus',
+    checks:['Base impetus fully automatic before adding sway','Sway initiated from hip on correct beat','Sway enhances — not distorts — the turn shape','Consistent side per repetition','Partner reports feeling the sway naturally'] },
+  { id:'ci-ns',   name:'Closed Impetus',       variant:'No Sway — Zippy', group:'Closed Impetus',
+    checks:['Frame compact and active','Rise crisp — no anticipation','Footwork precise at speed','Shape feels intentional not flat','Could repeat 4x in a row cleanly'] },
+  { id:'drs',     name:'Double Reverse Spin',  variant:'Base',      group:'Double Reverse Spin',
+    checks:['Step 1 wide enough to allow spin','Heel pull-up on step 2 complete','Rotation covers full 3/4 turn','Balance recoverable at any point in the spin','Exit step controlled — not stumbled'] },
+  { id:'drs-sw',  name:'Double Reverse Spin',  variant:'Sway',      group:'Double Reverse Spin',
+    checks:['Sway does not compromise spin axis','Timing of sway introduction correct','Left sway on correct step','Returns upright for exit','Feels integrated — not added on'] },
+  { id:'drs-ns',  name:'Double Reverse Spin',  variant:'No Sway — Zippy', group:'Double Reverse Spin',
+    checks:['Vertical axis sharp throughout','Faster rotation achieved through footwork not force','Arms don\'t open or collapse','Could chain two doubles cleanly','Partner feedback: felt collected and crisp'] },
+  { id:'fnt',     name:'Full Natural Turn',    variant:'Complete figure', group:'Full Natural Turn',
+    checks:['Steps 1-3 CBM and foot placement correct','Rise starts end of 1, continues 2-3','Steps 4-6 heel turn clean','Lower end of 6','Alignment exits in correct LOD direction','Overstride eliminated — stride serves the partner'] },
+  { id:'frt',     name:'Full Reverse Turn',    variant:'Complete figure', group:'Full Reverse Turn',
+    checks:['Step 1 left foot forward CBM','Heel turn on step 2 complete','Rise starts end of 1','Steps 4-6 mirror natural turn mechanics','Lower end of 6','Exits facing correct wall'] },
+];
+
+let waltzState = load('waltz_v3', {});
+let waltzOpen = null;
+
+function getFigureState(id) {
+  return waltzState[id] || { quality:0, thresh:'below', checks:{}, notes:'' };
+}
+function saveFigureState(id, state) {
+  waltzState[id] = state;
+  save('waltz_v3', waltzState);
+}
+
+function renderWaltz() {
+  let lastGroup = '';
+  const html = FIGURES.map((f,i) => {
+    const fs = getFigureState(f.id);
+    const isOpen = waltzOpen === f.id;
+    const checksDone = f.checks.filter((_,ci) => fs.checks[ci]).length;
+    const pct = f.checks.length ? Math.round(checksDone/f.checks.length*100) : 0;
+    const badgeClass = fs.thresh==='crossed'?'badge-crossed':fs.thresh==='approaching'?'badge-approaching':'badge-below';
+    const badgeText = fs.thresh==='crossed'?'Crossed':fs.thresh==='approaching'?'Approaching':'Below';
+    const qualityColour = fs.quality>=4?'var(--green)':fs.quality>=3?'#d4b000':fs.quality>=2?'var(--amber)':fs.quality===1?'#c0392b':'var(--ink3)';
+
+    let groupHeader = '';
+    if (f.group !== lastGroup) { groupHeader = `<div style="font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);padding:12px 0 4px;border-top:${lastGroup?'1px solid var(--rule-light)':'none'};margin-top:${lastGroup?'4px':'0'}">${f.group}</div>`; lastGroup=f.group; }
+
+    const checksHtml = f.checks.map((c,ci) => {
+      const checked = fs.checks[ci];
+      return `<div class="drill-row"><div class="drill-check${checked?' checked':''}" onclick="toggleFigureCheck('${f.id}',${ci})"></div><div class="drill-text">${c}</div></div>`;
+    }).join('');
+
+    const qBtns = [1,2,3,4,5].map(n =>
+      `<button class="q-btn${fs.quality===n?' sel-'+n:''}" onclick="setQuality('${f.id}',${n})">${n}</button>`
+    ).join('');
+
+    return `${groupHeader}<div class="figure-card">
+      <div class="figure-head" onclick="toggleFigure('${f.id}')">
+        <div style="flex:1"><div class="figure-name">${f.name}</div><div class="figure-variant">${f.variant}</div></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--ink3);margin-right:6px">${checksDone}/${f.checks.length}</div>
+        <div class="figure-quality-pip" style="background:${fs.quality?qualityColour+'22':''};color:${qualityColour}">${fs.quality||'—'}</div>
+        <div class="figure-badge ${badgeClass}" style="margin-left:6px">${badgeText}</div>
+      </div>
+      ${isOpen ? `<div class="figure-body open">
+        <div class="quality-row"><span class="quality-label">Quality</span>${qBtns}</div>
+        <div class="drill-section-label" style="margin-bottom:6px;">Threshold</div>
+        <div class="thresh-select">
+          <div class="ts-btn${fs.thresh==='below'?' sel-below':''}" onclick="setFigureThresh('${f.id}','below')">Managing</div>
+          <div class="ts-btn${fs.thresh==='approaching'?' sel-approaching':''}" onclick="setFigureThresh('${f.id}','approaching')">Getting easier</div>
+          <div class="ts-btn${fs.thresh==='crossed'?' sel-crossed':''}" onclick="setFigureThresh('${f.id}','crossed')">Want to do it</div>
+        </div>
+        <div class="drill-section-label">Checklist</div>
+        ${checksHtml}
+        <div class="drill-section-label" style="margin-top:12px;">Session note</div>
+        <textarea class="notes-field" id="notes_${f.id}" placeholder="What happened in this session...">${fs.notes||''}</textarea>
+        <button class="save-btn" id="savebtn_${f.id}" onclick="saveFigureSession('${f.id}')">Save to Sheets</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('figureCards').innerHTML = html;
+}
+
+function toggleFigure(id) { waltzOpen = waltzOpen===id ? null : id; renderWaltz(); }
+function setQuality(id, n) { const fs=getFigureState(id); fs.quality=n; saveFigureState(id,fs); renderWaltz(); }
+function setFigureThresh(id, t) { const fs=getFigureState(id); fs.thresh=t; saveFigureState(id,fs); renderWaltz(); }
+function toggleFigureCheck(id, ci) {
+  const fs=getFigureState(id);
+  fs.checks[ci]=!fs.checks[ci];
+  saveFigureState(id,fs);
+  renderWaltz();
+}
+function saveFigureSession(id) {
+  const fs=getFigureState(id);
+  const notesEl=document.getElementById('notes_'+id);
+  if(notesEl) fs.notes=notesEl.value;
+  saveFigureState(id,fs);
+  const f=FIGURES.find(x=>x.id===id);
+  const checksDone=f.checks.filter((_,ci)=>fs.checks[ci]).length;
+  syncToSheets({type:'waltz',date:todayKey(),figure:`${f.name} — ${f.variant}`,quality:fs.quality,checksDone,checksTotal:f.checks.length,threshState:fs.thresh,notes:fs.notes});
+  const btn=document.getElementById('savebtn_'+id);
+  if(btn){btn.classList.add('saved');btn.textContent='Saved ✓';setTimeout(()=>{btn.classList.remove('saved');btn.textContent='Save to Sheets';},1800);}
+  showToast(`${f.name} (${f.variant}) saved`);
+}
+renderWaltz();
+
+// ── THRESHOLD ────────────────────────────────────────────
+const DEFAULT_THRESH = [
+  {name:'Waltz',state:'below',pct:42,logjam:'Rise and fall still managed consciously — bandwidth full, nothing spare for listening.'},
+  {name:'Rumba',state:'crossed',pct:78,logjam:'Crossed. You want to dance it — hip action is in the body, not the head.'},
+  {name:'Walk (Da Vinci)',state:'approaching',pct:55,logjam:'Ankle as wave transmitter understood but not yet automatic.'},
+];
+let threshSkills = load('thresh_v3', DEFAULT_THRESH);
+let threshOpen = null;
+function renderThresh() {
+  document.getElementById('threshCards').innerHTML = threshSkills.map((sk,i)=>{
+    const badgeClass=sk.state==='crossed'?'badge-crossed':sk.state==='approaching'?'badge-approaching':'badge-below';
+    const badgeText=sk.state==='crossed'?'Threshold crossed':sk.state==='approaching'?'Approaching':'Below threshold';
+    const fillColor=sk.state==='crossed'?'var(--green)':sk.state==='approaching'?'var(--blue)':'var(--amber)';
+    const isOpen=threshOpen===i;
+    return `<div class="thresh-card">
+      <div class="thresh-head" onclick="toggleThresh(${i})">
+        <div class="thresh-skill">${sk.name}</div>
+        <div class="thresh-badge-sm ${badgeClass}">${badgeText}</div>
+      </div>
+      <div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${sk.pct}%;background:${fillColor};"></div></div>
+      <div class="bar-labels"><span>managing</span><span>— threshold —</span><span>want to do it</span></div></div>
+      ${isOpen?`<div class="thresh-body open">
+        <div class="logjam-label">Current logjam</div>
+        <div class="logjam-text">${sk.logjam}</div>
+        <div class="logjam-label" style="margin-bottom:7px;">How does it feel?</div>
+        <div class="thresh-select">
+          <div class="ts-btn${sk.state==='below'?' sel-below':''}" onclick="setThreshState(${i},'below')">Managing it</div>
+          <div class="ts-btn${sk.state==='approaching'?' sel-approaching':''}" onclick="setThreshState(${i},'approaching')">Getting easier</div>
+          <div class="ts-btn${sk.state==='crossed'?' sel-crossed':''}" onclick="setThreshState(${i},'crossed')">Want to do it</div>
+        </div>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+function toggleThresh(i){ threshOpen=threshOpen===i?null:i; renderThresh(); }
+function setThreshState(i,state){
+  threshSkills[i].state=state;
+  const pcts={below:Math.min(threshSkills[i].pct,55),approaching:Math.max(Math.min(threshSkills[i].pct,74),56),crossed:Math.max(threshSkills[i].pct,75)};
+  threshSkills[i].pct=pcts[state];
+  save('thresh_v3',threshSkills);
+  syncToSheets({type:'threshold',date:todayKey(),skill:threshSkills[i].name,state,pct:threshSkills[i].pct,logjam:threshSkills[i].logjam});
+  renderThresh();
+  showToast(state==='crossed'?`${threshSkills[i].name} — threshold crossed`:'State updated');
+}
+function addSkill(){
+  const inp=document.getElementById('newSkillInput');
+  const name=inp.value.trim(); if(!name) return;
+  threshSkills.push({name,state:'below',pct:20,logjam:'Not yet identified — practise until the logjam reveals itself.'});
+  inp.value=''; threshOpen=threshSkills.length-1;
+  save('thresh_v3',threshSkills); renderThresh();
+}
+renderThresh();
+</script>
+</body>
+</html>
